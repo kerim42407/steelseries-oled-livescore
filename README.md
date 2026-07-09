@@ -66,6 +66,12 @@ To build the installer, install [Inno Setup 6](https://jrsoftware.org/isinfo.php
 ISCC installer/setup.iss
 ```
 
+## Disclaimer
+
+Not affiliated with, endorsed by, or sponsored by ESPN or SteelSeries. Match data is
+retrieved from ESPN's public endpoints for **personal, non-commercial** use only.
+All trademarks and data belong to their respective owners.
+
 ## License
 
 [MIT](LICENSE)
