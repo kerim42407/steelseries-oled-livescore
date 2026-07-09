@@ -4,6 +4,11 @@ Desktop.ini
 
 # Editor
 .vscode/
+.vs/
 
-# Claude Code local files
-.claude/
+# Build output
+[Bb]in/
+[Oo]bj/
+
+# Installer output
+dist/
