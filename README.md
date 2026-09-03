@@ -1,5 +1,12 @@
 # OledLiveScore
 
+> ⚠️ &nbsp;**Using v1.0.0? It no longer works — please update.**
+>
+> ESPN shut down the endpoint host that v1.0.0 relied on, so it can no longer load
+> matches or show scores. **[Download v1.1.0](https://github.com/kerim42407/steelseries-oled-livescore/releases/latest)**
+> and run the installer over your existing copy. From v1.1.0 on, the app checks for
+> updates on its own, so this is the last manual step.
+
 Show **live football scores** on your SteelSeries OLED keyboard display (e.g. Apex Pro).
 Runs quietly in the system tray. No API key, no configuration — match data comes from ESPN's public endpoints.
 
