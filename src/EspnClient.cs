@@ -11,6 +11,9 @@ namespace OledLiveScore
     // Reads match data from ESPN's public soccer endpoints. No API key.
     internal sealed class EspnClient
     {
+        // site.api.espn.com now returns 403; site.web.api.espn.com serves the same paths.
+        private const string ApiBase = "https://site.web.api.espn.com/apis/site/v2/sports/soccer/";
+
         static EspnClient()
         {
             try { ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12; }
@@ -94,8 +97,7 @@ namespace OledLiveScore
 
             try
             {
-                var sch = GetJson("https://site.api.espn.com/apis/site/v2/sports/soccer/"
-                                  + team.League + "/teams/" + team.Id + "/schedule");
+                var sch = GetJson(ApiBase + team.League + "/teams/" + team.Id + "/schedule");
                 foreach (var e in Json.Arr(Json.Get(sch, "events"))) AddMatch(store, e);
             }
             catch { /* schedule optional */ }
@@ -103,7 +105,7 @@ namespace OledLiveScore
             foreach (var lig in Config.Leagues)
             {
                 object sb;
-                try { sb = GetJson("https://site.api.espn.com/apis/site/v2/sports/soccer/" + lig + "/scoreboard"); }
+                try { sb = GetJson(ApiBase + lig + "/scoreboard"); }
                 catch { continue; }
 
                 foreach (var e in Json.Arr(Json.Get(sb, "events")))
@@ -133,7 +135,7 @@ namespace OledLiveScore
         public List<Match> GetLeagueMatches(string slug)
         {
             var store = new Dictionary<string, Match>();
-            var sb = GetJson("https://site.api.espn.com/apis/site/v2/sports/soccer/" + slug + "/scoreboard");
+            var sb = GetJson(ApiBase + slug + "/scoreboard");
             foreach (var e in Json.Arr(Json.Get(sb, "events"))) AddMatch(store, e);
 
             var now = DateTime.Now;
@@ -145,7 +147,7 @@ namespace OledLiveScore
 
         public LiveState GetLive(string id)
         {
-            var s = GetJson("https://site.api.espn.com/apis/site/v2/sports/soccer/all/summary?event=" + id);
+            var s = GetJson(ApiBase + "all/summary?event=" + id);
             var comp = Json.Arr(Json.Path(s, "header", "competitions")).FirstOrDefault();
             var competitors = Json.Arr(Json.Get(comp, "competitors"));
             var home = competitors.FirstOrDefault(x => Json.Str(Json.Get(x, "homeAway")) == "home");

@@ -3,7 +3,7 @@
 ; Output: dist\OledLiveScore-Setup.exe
 
 #define AppName "OledLiveScore"
-#define AppVersion "1.0.0"
+#define AppVersion "1.1.0"
 #define AppPublisher "Kerim Mandaci"
 #define AppExe "OledLiveScore.exe"
 #define AppUrl "https://github.com/kerim42407/steelseries-oled-livescore"
@@ -46,3 +46,5 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: 
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "Launch OledLiveScore"; Flags: nowait postinstall skipifsilent
+; In-app update: the running copy started us silently, so put it back in the tray.
+Filename: "{app}\{#AppExe}"; Parameters: "--silent"; Flags: nowait; Check: WizardSilent

@@ -26,6 +26,7 @@ namespace OledLiveScore
             _espn = espn;
 
             Text = "OledLiveScore - pick a match";
+            Icon = AppIcon.Create();
             FormBorderStyle = FormBorderStyle.FixedDialog;
             StartPosition = FormStartPosition.CenterScreen;
             MaximizeBox = false;

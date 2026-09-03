@@ -21,10 +21,18 @@ namespace OledLiveScore
             {
                 if (k == null) return;
                 if (enabled)
-                    k.SetValue(ValueName, "\"" + Application.ExecutablePath + "\"");
+                    k.SetValue(ValueName,
+                        "\"" + Application.ExecutablePath + "\" " + Program.SilentFlag);
                 else if (k.GetValue(ValueName) != null)
                     k.DeleteValue(ValueName, false);
             }
+        }
+
+        // Rewrite the entry on startup so an old or moved exe path picks up the flag.
+        public static void Refresh()
+        {
+            try { if (IsEnabled()) Set(true); }
+            catch { /* registry locked down */ }
         }
     }
 }

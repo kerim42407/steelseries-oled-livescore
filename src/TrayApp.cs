@@ -1,5 +1,7 @@
 using System;
+using System.Threading;
 using System.Windows.Forms;
+using Timer = System.Windows.Forms.Timer;
 
 namespace OledLiveScore
 {
@@ -12,9 +14,13 @@ namespace OledLiveScore
         private readonly EspnClient _espn = new EspnClient();
         private readonly ToolStripMenuItem _stopItem;
         private readonly ToolStripMenuItem _autostartItem;
+        private readonly Timer _updateTimer;
         private ScoreTracker _tracker;
+        private bool _picking;
+        private bool _updating;
+        private UpdateInfo _pending;
 
-        public TrayApp()
+        public TrayApp(bool openPicker)
         {
             _marshal = new Control();
             _marshal.CreateControl(); // force a handle so we can marshal to the UI thread
@@ -29,6 +35,7 @@ namespace OledLiveScore
                 Checked = Autostart.IsEnabled()
             };
             menu.Items.Add(_autostartItem);
+            menu.Items.Add("Check for updates...", null, (s, e) => CheckForUpdates(true));
             menu.Items.Add("Quit", null, (s, e) => Quit());
 
             _icon = new NotifyIcon
@@ -40,7 +47,36 @@ namespace OledLiveScore
             };
             _icon.DoubleClick += (s, e) => PickMatch();
 
-            TryConnect(false);
+            _icon.BalloonTipClicked += (s, e) => OfferUpdate();
+
+            ListenForWake();
+
+            if (openPicker)
+                _marshal.BeginInvoke((Action)PickMatch); // wait for the message loop
+            else
+                TryConnect(false);
+
+            _updateTimer = new Timer { Interval = (int)TimeSpan.FromHours(6).TotalMilliseconds };
+            _updateTimer.Tick += (s, e) => CheckForUpdates(false);
+            _updateTimer.Start();
+            CheckForUpdates(false);
+        }
+
+        // A second launch of the exe signals this event; show the picker for it.
+        private void ListenForWake()
+        {
+            var wake = new EventWaitHandle(false, EventResetMode.AutoReset, Program.WakeEventName);
+            var t = new Thread(() =>
+            {
+                while (true)
+                {
+                    wake.WaitOne();
+                    try { _marshal.BeginInvoke((Action)PickMatch); }
+                    catch { return; /* shutting down */ }
+                }
+            });
+            t.IsBackground = true;
+            t.Start();
         }
 
         private bool TryConnect(bool loud)
@@ -65,13 +101,20 @@ namespace OledLiveScore
 
         private void PickMatch()
         {
+            if (_picking) return;
             if (!TryConnect(true)) return;
 
-            using (var f = new MatchPickerForm(_espn))
+            _picking = true;
+            try
             {
-                if (f.ShowDialog() != DialogResult.OK) return;
-                StartTracking(f.SelectedEventId);
+                using (var f = new MatchPickerForm(_espn))
+                {
+                    f.Shown += (s, e) => f.Activate();
+                    if (f.ShowDialog() != DialogResult.OK) return;
+                    StartTracking(f.SelectedEventId);
+                }
             }
+            finally { _picking = false; }
         }
 
         private void StartTracking(string eventId)
@@ -117,8 +160,104 @@ namespace OledLiveScore
             _autostartItem.Checked = now;
         }
 
+        private void CheckForUpdates(bool loud)
+        {
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                UpdateInfo info = null;
+                string error = null;
+                try { info = Updater.Check(); }
+                catch (Exception ex) { error = ex.Message; }
+
+                try { _marshal.BeginInvoke((Action)(() => OnUpdateChecked(info, error, loud))); }
+                catch { /* shutting down */ }
+            });
+        }
+
+        private void OnUpdateChecked(UpdateInfo info, string error, bool loud)
+        {
+            _pending = info;
+
+            if (info == null)
+            {
+                // A silent check stays silent, whether it failed or found nothing.
+                if (!loud) return;
+                if (error != null)
+                    MessageBox.Show("Could not check for updates.\n\n" + error,
+                        Config.AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                else
+                    MessageBox.Show("You are on the latest version (" + Updater.Current + ").",
+                        Config.AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            if (loud)
+                OfferUpdate();
+            else
+                _icon.ShowBalloonTip(10000, Config.AppName,
+                    "Update available: v" + info.Version + " - click to install.", ToolTipIcon.Info);
+        }
+
+        private void OfferUpdate()
+        {
+            var info = _pending;
+            if (info == null || _updating) return;
+
+            var msg = "A new version is available.\n\n"
+                      + "Installed:  " + Updater.Current + "\n"
+                      + "Latest:     " + info.Version + "\n\n"
+                      + (info.SetupUrl == null
+                          ? "Open the download page?"
+                          : "Update now? The app will close, install, and start again.");
+
+            if (MessageBox.Show(msg, Config.AppName, MessageBoxButtons.YesNo, MessageBoxIcon.Question)
+                != DialogResult.Yes) return;
+
+            if (info.SetupUrl == null) { Updater.OpenReleasesPage(info.PageUrl); return; }
+
+            _updating = true;
+            SetTooltip(Config.AppName + " - downloading update");
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                string path = null;
+                string error = null;
+                try { path = Updater.Download(info); }
+                catch (Exception ex) { error = ex.Message; }
+
+                try { _marshal.BeginInvoke((Action)(() => OnDownloaded(path, error))); }
+                catch { /* shutting down */ }
+            });
+        }
+
+        private void OnDownloaded(string path, string error)
+        {
+            if (path == null)
+            {
+                _updating = false;
+                SetTooltip(Config.AppName);
+                MessageBox.Show("Download failed, opening the download page instead.\n\n" + error,
+                    Config.AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Updater.OpenReleasesPage(_pending == null ? null : _pending.PageUrl);
+                return;
+            }
+
+            try
+            {
+                Updater.Install(path);
+                Quit(); // let go of the exe so the installer can replace it
+            }
+            catch (Exception ex)
+            {
+                _updating = false;
+                SetTooltip(Config.AppName);
+                MessageBox.Show("Could not start the installer.\n\n" + ex.Message,
+                    Config.AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
         private void Quit()
         {
+            if (_updateTimer != null) _updateTimer.Stop();
             if (_tracker != null) _tracker.Stop();
             _icon.Visible = false;
             _icon.Dispose();

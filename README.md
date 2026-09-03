@@ -11,6 +11,7 @@ Runs quietly in the system tray. No API key, no configuration — match data com
 - **Goal animation** — flashes `GOAL!`, blinks the scoring team's number, then shows the scorer and minute.
 - Pick a match by **league / competition** (World Cup, Champions League, Premier League, La Liga, Süper Lig, …) or by **team name**.
 - Lives in the system tray — no console window. Optional "Start with Windows".
+- **Automatic update check** — tells you when a new release is out and installs it for you.
 
 ## Requirements
 
@@ -36,7 +37,17 @@ Runs quietly in the system tray. No API key, no configuration — match data com
 6. The score appears on your keyboard's OLED and updates automatically. When a goal is
    scored, the goal animation plays.
 
-Tray menu: **Pick match…**, **Stop**, **Start with Windows**, **Quit**.
+Starting the app from the Start menu or its shortcut opens the match picker right away.
+When Windows starts it, it stays quiet in the tray instead.
+
+Tray menu: **Pick match…**, **Stop**, **Start with Windows**, **Check for updates…**, **Quit**.
+
+## Updates
+
+The app checks GitHub Releases on startup and every 6 hours. When a newer version is out,
+a tray notification appears — click it and confirm, and the app downloads the installer,
+updates itself, and comes back in the tray. You can also trigger the check from
+**Check for updates…** in the tray menu.
 
 ## Uninstall
 
